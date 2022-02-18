@@ -7,6 +7,15 @@ import scrapy
 
 
 class InternItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+    companyLogo = scrapy.Field()
+    companyName = scrapy.Field()
+    postTitle = scrapy.Field()
+    postDescription = scrapy.Field()
+    applyNowPage = scrapy.Field()
+    jobTitle = scrapy.Field()
+    jobDuration = scrapy.Field()
+    jobLocation = scrapy.Field()
+    jobRequirement = scrapy.Field()
+    jobEligibility = scrapy.Field()
+    aboutCompany = scrapy.Field()
+    lastUpdated = scrapy.Field()
