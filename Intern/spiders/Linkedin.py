@@ -6,16 +6,22 @@ from ..items import InternItem
 
 
 def next_page(response):
-    companyLogo = response.css(".artdeco-entity-image--square-5").xpath("@data-delayed-url").extract_first().strip()
-    companyName = response.css(".topcard__flavor--black-link::text").extract_first().strip()
-    postTitle = response.css(".topcard__title::text").extract_first().strip()
-    applyNowPage = response.css(".top-card-layout__cta--primary").xpath("@href").extract_first().strip()
-    jobTitle = response.css(".topcard__title::text").extract_first().strip()
-    jobDuration = "Nothing Here"
-    jobLocation = response.css(".topcard__flavor--bullet::text").extract_first().strip()
-    aboutCompany = "Nothing Here"
-    lastUpdated = dateparser.parse(response.css(".topcard__flavor--metadata::text").extract_first().strip())
-    rawDescription = "".join(response.css(".show-more-less-html__markup--clamp-after-5").extract()).strip()
+    items = response.meta['items']
+
+    items['companyLogo'] = response.css(".artdeco-entity-image--square-5").xpath("@data-delayed-url").extract_first().strip()
+    items['companyName'] = response.css(".topcard__flavor--black-link::text").extract_first().strip()
+    items['postTitle'] = response.css(".topcard__title::text").extract_first().strip()
+    items['jobTitle'] = response.css(".topcard__title::text").extract_first().strip()
+    items['jobLocation'] = response.css(".topcard__flavor--bullet::text").extract_first().strip()
+    items['lastUpdated'] = dateparser.parse(response.css(".topcard__flavor--metadata::text").extract_first().strip())
+    items['jobDuration'] = "Nothing Here"
+    items['aboutCompany'] = "Nothing Here"
+
+    applyLink = response.css(".top-card-layout__cta--primary").xpath("@href").extract_first()
+    if not applyLink:
+        items['applyNowPage'] = response.css(".topcard__link").xpath("@href").extract_first().strip()
+    else:
+        items['applyNowPage'] = applyLink.strip()
 
     htmlParser = html2text.HTML2Text()
     htmlParser.ignore_links = False
@@ -25,36 +31,23 @@ def next_page(response):
     htmlParser.emphasis_mark = ""
     htmlParser.strong_mark = ""
 
-    postDescription = htmlParser.handle(rawDescription)
-    jobRequirement = postDescription
-    jobEligibility = postDescription
+    rawDescription = "".join(response.css(".show-more-less-html__markup--clamp-after-5").extract()).strip()
+    items['postDescription'] = htmlParser.handle(rawDescription)
+    items['jobRequirement'] = items['postDescription']
+    items['jobEligibility'] = items['postDescription']
 
-    items = InternItem(
-        companyLogo=companyLogo,
-        companyName=companyName,
-        postTitle=postTitle,
-        postDescription=postDescription,
-        applyNowPage=applyNowPage,
-        jobTitle=jobTitle,
-        jobDuration=jobDuration,
-        jobLocation=jobLocation,
-        jobRequirement=jobRequirement,
-        jobEligibility=jobEligibility,
-        aboutCompany=aboutCompany,
-        lastUpdated=lastUpdated,
-    )
     yield items
 
 
 class LinkedinSpider(scrapy.Spider):
     name = "linkedin"
-    jobKeyWord = "Android Developer"
-    location = "India"
 
-    start_urls = [
-        'https://www.linkedin.com/jobs/search/?keywords={}&location={}'.format(
-            jobKeyWord.strip().replace(" ", "%20"), location.strip().replace(" ", "%20")),
-    ]
+    def start_requests(self, jobKeyWord="Android Developer", location="India", numberOfPages=1):
+        for pages in range(0, numberOfPages * 25, 25):
+            yield scrapy.Request(
+                url='https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?start={}&keywords={}&location={}'.format(
+                    pages, jobKeyWord.strip().replace(" ", "%20"), location.strip().replace(" ", "%20")),
+                callback=self.parse)
 
     def parse(self, response, **kwargs):
         dataEntityUrn = response.css(".base-card").xpath("@data-entity-urn").extract()
@@ -68,4 +61,11 @@ class LinkedinSpider(scrapy.Spider):
 
             nextPageUrl = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{}?refId={}%3D%3D&trackingId={}%3D%3D".format(
                 currentJobPostingId, currentDataSearchId, currentDataTrackingId)
-            yield scrapy.Request(url=nextPageUrl, callback=next_page)
+
+            items = InternItem()
+            items['jobId'] = currentJobPostingId
+
+            request = scrapy.Request(url=nextPageUrl, callback=next_page)
+            request.meta['items'] = items
+
+            yield request

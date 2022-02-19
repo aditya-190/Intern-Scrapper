@@ -7,6 +7,7 @@ import scrapy
 
 
 class InternItem(scrapy.Item):
+    jobId = scrapy.Field()
     companyLogo = scrapy.Field()
     companyName = scrapy.Field()
     postTitle = scrapy.Field()
