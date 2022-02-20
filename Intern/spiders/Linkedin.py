@@ -1,19 +1,25 @@
+import json
+import os
 import dateparser
 import html2text
 import re
 import scrapy
-from ..items import InternItem
+import requests
+from Intern.Intern.items import InternItem
+from scrapy.crawler import CrawlerProcess
 
 
 def next_page(response):
-    items = response.meta['items']
+    items = InternItem()
 
-    items['companyLogo'] = response.css(".artdeco-entity-image--square-5").xpath("@data-delayed-url").extract_first().strip()
+    items['companyLogo'] = response.css(".artdeco-entity-image--square-5").xpath(
+        "@data-delayed-url").extract_first().strip()
     items['companyName'] = response.css(".topcard__flavor--black-link::text").extract_first().strip()
     items['postTitle'] = response.css(".topcard__title::text").extract_first().strip()
     items['jobTitle'] = response.css(".topcard__title::text").extract_first().strip()
     items['jobLocation'] = response.css(".topcard__flavor--bullet::text").extract_first().strip()
-    items['lastUpdated'] = dateparser.parse(response.css(".topcard__flavor--metadata::text").extract_first().strip())
+    items['lastUpdated'] = int(dateparser.parse(
+        response.css(".topcard__flavor--metadata::text").extract_first().strip()).timestamp())
     items['jobDuration'] = "Nothing Here"
     items['aboutCompany'] = "Nothing Here"
 
@@ -42,7 +48,7 @@ def next_page(response):
 class LinkedinSpider(scrapy.Spider):
     name = "linkedin"
 
-    def start_requests(self, jobKeyWord="Android Developer", location="India", numberOfPages=1):
+    def start_requests(self, jobKeyWord="Kotlin", location="India", numberOfPages=1):
         for pages in range(0, numberOfPages * 25, 25):
             yield scrapy.Request(
                 url='https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?start={}&keywords={}&location={}'.format(
@@ -62,10 +68,37 @@ class LinkedinSpider(scrapy.Spider):
             nextPageUrl = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{}?refId={}%3D%3D&trackingId={}%3D%3D".format(
                 currentJobPostingId, currentDataSearchId, currentDataTrackingId)
 
-            items = InternItem()
-            items['jobId'] = currentJobPostingId
+            yield scrapy.Request(url=nextPageUrl, callback=next_page)
 
-            request = scrapy.Request(url=nextPageUrl, callback=next_page)
-            request.meta['items'] = items
 
-            yield request
+def send_data():
+    baseUrl = "https://aditya-intern-backend.herokuapp.com/job/all"
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Authorization": "Bearer {ADD YOUR TOKEN HERE}"
+    }
+    jsonData = json.load(open('output.json'))
+    response = requests.post(baseUrl, headers=headers, json=jsonData)
+
+    if response.status_code == 200:
+        print("Data Inserted Successfully")
+    else:
+        print("Something Went Wrong.")
+
+
+if __name__ == "__main__":
+
+    if os.path.exists("output.json"):
+        os.remove("output.json")
+
+    process = CrawlerProcess(settings={
+        'FEED_URI': 'output.json',
+        'FEED_FORMAT': 'json',
+        'USER_AGENT': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'ROBOTSTXT_OBEY': 'True',
+        'DOWNLOAD_DELAY': '1'
+    })
+
+    process.crawl(LinkedinSpider)
+    process.start()
+    send_data()

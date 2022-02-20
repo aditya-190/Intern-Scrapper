@@ -12,6 +12,8 @@ BOT_NAME = 'Intern'
 SPIDER_MODULES = ['Intern.spiders']
 NEWSPIDER_MODULE = 'Intern.spiders'
 
+FEED_FORMAT = 'json'
+FEED_URI = 'output.json'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 # USER_AGENT = 'Intern (+http://www.yourdomain.com)'
