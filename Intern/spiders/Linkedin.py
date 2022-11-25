@@ -104,7 +104,7 @@ def main(number_of_pages, keywords, location):
         'FEED_URI': 'output.json',
         'FEED_FORMAT': 'json',
         'USER_AGENT': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-        'ROBOTSTXT_OBEY': 'True',
+        'ROBOTSTXT_OBEY': 'False',
         'DOWNLOAD_DELAY': '1'
     })
 
